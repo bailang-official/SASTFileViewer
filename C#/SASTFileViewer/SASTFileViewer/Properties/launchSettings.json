@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SASTFileViewer (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "SASTFileViewer (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
