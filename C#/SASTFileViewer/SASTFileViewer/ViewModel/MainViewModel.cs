@@ -14,6 +14,8 @@ namespace SASTFileViewer
     
     public class MainViewModel : INotifyPropertyChanged
     {
+        public ObservableCollection<string> Breadcrumbs { get; set; } = new(); //储存面包屑每一级的名称
+
         private List<FileItem> _allFiles = new();
         public ObservableCollection<FileItem> Files { get; set; } = new();
         private string _currentPath = "";
@@ -34,52 +36,84 @@ namespace SASTFileViewer
         }
         */
 
-        public void LoadFiles(string folderPath)
+        public async Task LoadFiles(string folderPath)
         {
             if (!Directory.Exists(folderPath)) return;
 
             CurrentPath = folderPath; //更新路径
             Files.Clear(); // 清空旧的测试数据
 
-            DirectoryInfo dir = new DirectoryInfo(folderPath);
+            //DirectoryInfo dir = new DirectoryInfo(folderPath);
 
-            //1.获取所有文件夹
-            foreach (var directory in dir.GetDirectories())
+            var items = await Task.Run(() =>
             {
-                Files.Add(new FileItem
-                {
-                    Name = directory.Name,
-                    FullPath = directory.FullName,
-                    IsFolder = true,
-                    FileType = "文件夹"
-                });
-                _allFiles = Files.ToList(); // 每次加载新文件夹，都备份一份完整列表
+                var tempList = new List<FileItem>();
+                DirectoryInfo dir = new DirectoryInfo(folderPath);
 
+                try
+                {
+                    // 1. 获取所有文件夹
+                    foreach (var directory in dir.GetDirectories())
+                    {
+                        tempList.Add(new FileItem
+                        {
+                            Name = directory.Name,
+                            FullPath = directory.FullName,
+                            IsFolder = true,
+                            FileType = "文件夹"
+                        });
+                    }
+
+                    // 2. 获取所有文件
+                    foreach (var file in dir.GetFiles())
+                    {
+                        tempList.Add(new FileItem
+                        {
+                            Name = file.Name,
+                            FullPath = file.FullName,
+                            IsFolder = false,
+                            FileType = file.Extension,
+                            FileSize = (file.Length / 1024.0).ToString("F2") + " KB",
+                            LastModified = file.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                        });
+                    }
+                }
+                catch (UnauthorizedAccessException) { /* 处理权限不足的文件夹 */ }
+
+                return tempList;
+            });
+
+            // 回到 UI 线程更新集合
+            foreach (var item in items)
+            {
+                Files.Add(item);
             }
 
-            //2.二次获取所有文件
-            foreach (var file in dir.GetFiles())
+            // 更新搜索备份记录
+            _allFiles = Files.ToList();
+
+            Breadcrumbs.Clear();
+            var parts = folderPath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+            // 处理磁盘驱动器（如 C:）
+            if (folderPath.Contains(':'))
             {
-                Files.Add(new FileItem
-                {
-                    Name = file.Name,
-                    FullPath = file.FullName,
-                    IsFolder = false,
-                    FileType = file.Extension,
-                    FileSize = (file.Length / 1024.0).ToString("F2") + " KB",
-                    LastModified = file.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
-                });
-                _allFiles = Files.ToList(); // 每次加载新文件夹，都备份一份完整列表
+                Breadcrumbs.Add(parts[0] + Path.DirectorySeparatorChar);
+                for (int i = 1; i < parts.Length; i++) Breadcrumbs.Add(parts[i]);
+            }
+            else
+            {
+                foreach (var part in parts) Breadcrumbs.Add(part);
             }
         }
-        public void GoBack()
+        public async Task GoBack()
         {
             if (string.IsNullOrEmpty(CurrentPath)) return;
 
             var parent = Directory.GetParent(CurrentPath);
             if(parent != null)
             {
-                LoadFiles(parent.FullName);
+                await LoadFiles(parent.FullName);
             }
         }
 
@@ -99,6 +133,8 @@ namespace SASTFileViewer
                 foreach (var f in filtered) Files.Add(f);
             }
         }
+
+        
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string name) =>

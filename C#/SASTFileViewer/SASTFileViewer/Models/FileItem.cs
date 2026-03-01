@@ -14,6 +14,7 @@ namespace SASTFileViewer.Models
         public string Name { get; set; } = string.Empty;
         public string FullPath { get; set; } = string.Empty;
         public bool IsFolder { get; set; }
+        public string path { get; set; }
         public string FileType { get; set; } = string.Empty;
         public string FileSize { get; set; } = "";
         public string LastModified { get; set; } = "";

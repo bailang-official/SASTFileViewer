@@ -27,20 +27,21 @@ namespace SASTFileViewer
         public MainViewModel ViewModel { get; } = new MainViewModel();
         public MainWindow()
         {
-            
+            this.InitializeComponent(); //加载界面
 
             string path = AppDomain.CurrentDomain.BaseDirectory; //选择程序的运行目录
 
-            ViewModel.LoadFiles(path); //读取文件夹
+            _ = ViewModel.LoadFiles(path); //读取文件夹
 
-            this.InitializeComponent(); //加载界面
+            
         }
 
 
-        private void BackButton_Click(object sender, RoutedEventArgs e)
+        private async void BackButton_Click(object sender, RoutedEventArgs e)
         {
-            ViewModel.GoBack();
+            await ViewModel.GoBack();
         }
+        /*
         private async void FileListView_ItemClick(object sender, ItemClickEventArgs e)
         {
             // 获取被点击的对象并转换为 FileItem
@@ -59,10 +60,53 @@ namespace SASTFileViewer
                     ViewModel.LoadFiles(clickedItem.FullPath);
             }
         }
+        */
         private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
             // 只要用户打字，就实时过滤
             ViewModel.FilterFiles(sender.Text);
+        }
+        // 核心：处理 XAML 报错 CS1061 的对应方法
+        private async void FileListView_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+        {
+            // 这里的 FileListView 必须对应 XAML 中的 x:Name
+            if (FileListView.SelectedItem is SASTFileViewer.Models.FileItem selectedItem)
+            {
+                if (selectedItem.IsFolder)
+                {
+                    // 逻辑原理：双击的是文件夹，则异步进入
+                    await ViewModel.LoadFiles(selectedItem.FullPath);
+                }
+                else
+                {
+                    // 逻辑原理：双击的是文件，则调用系统默认程序
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(selectedItem.FullPath)
+                        {
+                            UseShellExecute = true
+                        });
+                    }
+                    catch { /* 容错：防止遇到无法打开的文件格式导致程序闪退 */ }
+                }
+            }
+        }
+        private async void PathBreadcrumbBar_ItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+        {
+            // 逻辑原理：点击第 n 个节点，就截取前 n 个路径片段重新组合成路径
+            var items = ViewModel.Breadcrumbs;
+            string targetPath = "";
+
+            for (int i = 0; i <= args.Index; i++)
+            {
+                // 组合路径，自动处理斜杠
+                targetPath = Path.Combine(targetPath, items[i]);
+            }
+
+            if (Directory.Exists(targetPath))
+            {
+                await ViewModel.LoadFiles(targetPath);
+            }
         }
 
     }
