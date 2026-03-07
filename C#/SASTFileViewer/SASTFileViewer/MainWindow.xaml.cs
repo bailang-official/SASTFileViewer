@@ -24,7 +24,7 @@ namespace SASTFileViewer
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        public MainViewModel ViewModel { get; } = new MainViewModel();
+        public MainViewModel ViewModel { get; } = new(); //创建 ViewModel 实例，绑定到界面
         public MainWindow()
         {
             this.InitializeComponent(); //加载界面
